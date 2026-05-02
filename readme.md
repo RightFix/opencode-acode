@@ -31,8 +31,8 @@ A plugin to install and manage [OpenCode](https://opencode.ai) on Alpine Linux i
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/RightFix/opencode-alpine-installer-Acode.git
-   cd opencode-alpine-installer-Acode
+   git clone https://github.com/RightFix/opencode-acode
+   cd opencode-acode
    ```
 
 2. Install dependencies:
