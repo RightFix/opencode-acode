@@ -1,7 +1,7 @@
 {
   "$schema": "https://acode.app/schema/plugin/v0.1.0.json",
-  "id": "com.rightfix.opencode-alpine",
-  "name": "OpenCode Alpine Installer",
+  "id": "com.rightfix.acodeopencode",
+  "name": "OpenCode",
   "main": "main.js",
   "version": "1.0.0",
   "repository": "https://github.com/RightFix/opencode-acode.git",
