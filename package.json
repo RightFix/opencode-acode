@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "Install and manage OpenCode on Alpine Linux for Acode mobile editor",
   "main": "src/main.js",
-  "repository": "https://github.com/RightFix/opencode-alpine-installer-Acode.git",
+  "repository": "https://github.com/RightFix/opencode-acode.git",
   "author": "RightFix",
   "license": "MIT",
   "dependencies": {

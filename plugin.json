@@ -4,7 +4,7 @@
   "name": "OpenCode Alpine Installer",
   "main": "main.js",
   "version": "1.0.0",
-  "repository": "https://github.com/RightFix/opencode-alpine-installer-Acode.git",
+  "repository": "https://github.com/RightFix/opencode-acode.git",
   "icon": "icon.png",
   "minVersionCode": 290,
   "license": "MIT",
