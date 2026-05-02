@@ -205,10 +205,13 @@ class OpenCodeAlpinePlugin {
 
       const term = await terminal.create({ name: 'Install OpenCode' });
       
-      await terminal.write(term.id, "cp " + this.baseUrl + "src/opencode.sh /tmp/opencode.sh \r\n");
-      await terminal.write(term.id, "chmod +x /tmp/opencode.sh \r\n");
-      await terminal.write(term.id, "/tmp/opencode.sh \r\n");
-      await terminal.write(term.id, "exit \r\n");
+      await terminal.write(term.id, "apk update\r\n");
+      await terminal.write(term.id, "apk add curl bash nodejs npm libc6-compat git\r\n");
+      await terminal.write(term.id, "npm uninstall -g opencode-ai 2>/dev/null\r\n");
+      await terminal.write(term.id, "rm -f /usr/local/bin/opencode\r\n");
+      await terminal.write(term.id, "mkdir -p ~/.local/share/opencode/bin\r\n");
+      await terminal.write(term.id, "curl -fsSL https://opencode.ai/install | bash\r\n");
+      await terminal.write(term.id, 'echo "export PATH=$HOME/.opencode/bin:$PATH" >> ~/.bashrc\r\n');
 
       alert('Installing OpenCode...', 'Wait for installation to complete. Follow the terminal output.');
     } catch (error) { alert('Error', String(error)); }
