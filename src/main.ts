@@ -4,10 +4,6 @@ interface AcodeAlert {
   (title: string, message: string): void;
 }
 
-interface AcodePrompt {
-  (message: string): Promise<string | null>;
-}
-
 interface AcodeConfirm {
   (title: string, message: string): Promise<boolean>;
 }
@@ -25,8 +21,29 @@ interface TerminalModule {
   write(id: string, content: string): Promise<void>;
 }
 
+interface AcodeCommand {
+  name: string;
+  description: string;
+  exec: () => void | Promise<void>;
+}
+
+declare const acode: {
+  require: (module: string) => unknown;
+  setPluginInit: (id: string, initFn: (baseUrl: string, $page: unknown, ctx: { cacheFileUrl: string; cacheFile: unknown }) => Promise<void>) => void;
+  setPluginUnmount: (id: string, unmountFn: () => void) => void;
+};
+
+declare const editorManager: {
+  isCodeMirror: boolean;
+  editor: {
+    commands: {
+      addCommand: (cmd: AcodeCommand) => void;
+      removeCommand: (name: string) => void;
+    };
+  };
+};
+
 let alert: AcodeAlert;
-let prompt: AcodePrompt;
 let confirm: AcodeConfirm;
 let select: AcodeSelect;
 let terminal: TerminalModule;
@@ -34,23 +51,14 @@ let terminal: TerminalModule;
 class OpenCodeAlpinePlugin {
   baseUrl = '';
 
-  async init($page: unknown, cacheFile: unknown, cacheFileUrl: string): Promise<void> {
-    this.$page = $page;
-    this.cacheFile = cacheFile;
-    this.cacheFileUrl = cacheFileUrl;
-
+  async init(): Promise<void> {
     alert = acode.require('alert') as AcodeAlert;
-    prompt = acode.require('prompt') as AcodePrompt;
     confirm = acode.require('confirm') as AcodeConfirm;
     select = acode.require('select') as AcodeSelect;
     terminal = acode.require('terminal') as TerminalModule;
 
     this.registerCommands();
   }
-
-  private $page: unknown;
-  private cacheFile: unknown;
-  private cacheFileUrl: string;
 
   registerCommands(): void {
     const self = this;
@@ -63,7 +71,7 @@ class OpenCodeAlpinePlugin {
     ];
 
     if (editorManager.isCodeMirror) {
-      const cmds = acode.require('commands');
+      const cmds = acode.require('commands') as { add: (name: string, desc: string, fn: () => void) => void };
       commands.forEach(cmd => cmds.add(cmd.name, cmd.description, cmd.exec));
     } else {
       const { commands: editorCommands } = editorManager.editor;
@@ -146,7 +154,7 @@ class OpenCodeAlpinePlugin {
       'opencode-menu'
     ];
     if (editorManager.isCodeMirror) {
-      const cmds = acode.require('commands');
+      const cmds = acode.require('commands') as { remove: (name: string) => void };
       commandNames.forEach(name => cmds.remove(name));
     } else {
       const { commands } = editorManager.editor;
@@ -160,7 +168,7 @@ if (window.acode) {
   acode.setPluginInit(plugin.id, async (baseUrl: string, $page: unknown, { cacheFileUrl, cacheFile }: { cacheFileUrl: string; cacheFile: unknown }) => {
     if (!baseUrl.endsWith('/')) baseUrl += '/';
     opencodePlugin.baseUrl = baseUrl;
-    await opencodePlugin.init($page, cacheFile, cacheFileUrl);
+    await opencodePlugin.init();
   });
   acode.setPluginUnmount(plugin.id, () => opencodePlugin.destroy());
 }
