@@ -32,26 +32,28 @@ interface EditorManager {
   activeFile?: { path?: string; filename?: string } | null;
   on(event: string, callback: () => void): void;
   off(event: string, callback: () => void): void;
-  editor: {
-    commands: {
-      addCommand: (cmd: AcodeCommand) => void;
-      removeCommand: (name: string) => void;
-    };
-    activeFile?: { path?: string; filename?: string } | null;
-    on(event: string, callback: () => void): void;
-    off(event: string, callback: () => void): void;
-  };
+  editor: EditorCommands;
   getActiveFile?: () => { path?: string; filename?: string } | null;
 }
 
-declare const acode: {
+interface EditorCommands {
+  commands: {
+    addCommand: (cmd: AcodeCommand) => void;
+    removeCommand: (name: string) => void;
+  };
+  activeFile?: { path?: string; filename?: string } | null;
+  on(event: string, callback: () => void): void;
+  off(event: string, callback: () => void): void;
+}
+
+interface AcodeModule {
   require: (module: string) => unknown;
   setPluginInit: (id: string, initFn: (baseUrl: string, $page: unknown, ctx: { cacheFileUrl: string; cacheFile: unknown }) => Promise<void>) => void;
   setPluginUnmount: (id: string, unmountFn: () => void) => void;
-};
+}
 
-declare const editorManager: EditorManager;
-
+let acode: AcodeModule;
+let editorManager: EditorManager;
 let alert: AcodeAlert;
 let confirm: AcodeConfirm;
 let select: AcodeSelect;
@@ -62,6 +64,10 @@ class OpenCodeAlpinePlugin {
   private runBtn: HTMLSpanElement | null = null;
 
   async init(): Promise<void> {
+    const win = window as Window & { acode?: AcodeModule; editorManager?: EditorManager };
+    acode = win.acode as AcodeModule;
+    editorManager = win.editorManager as EditorManager;
+    
     alert = acode.require('alert') as AcodeAlert;
     confirm = acode.require('confirm') as AcodeConfirm;
     select = acode.require('select') as AcodeSelect;
@@ -73,10 +79,12 @@ class OpenCodeAlpinePlugin {
 
   private getActiveFile(): { path?: string; filename?: string } | null {
     try {
+      if (!editorManager) return null;
+      
       if (editorManager.isCodeMirror) {
         return editorManager.activeFile || null;
       } else {
-        return (editorManager.editor as EditorManager).activeFile || null;
+        return editorManager.editor?.activeFile || null;
       }
     } catch {
       return null;
@@ -142,18 +150,22 @@ class OpenCodeAlpinePlugin {
   }
 
   private setupRunButton(): void {
+    if (!editorManager) return;
+    
     const handleSwitch = this.showButtonIfFileOpen.bind(this);
     
     if (editorManager.isCodeMirror) {
       editorManager.on('switch-file', handleSwitch);
     } else if (editorManager.editor) {
-      (editorManager.editor as EditorManager).on('switch-file', handleSwitch);
+      editorManager.editor.on('switch-file', handleSwitch);
     }
 
     this.showButtonIfFileOpen();
   }
 
   registerCommands(): void {
+    if (!editorManager) return;
+    
     const self = this;
     const commands = [
       { name: 'opencode-install', description: 'OpenCode: Install', exec: () => self.installOpenCode() },
@@ -166,7 +178,7 @@ class OpenCodeAlpinePlugin {
     if (editorManager.isCodeMirror) {
       const cmds = acode.require('commands') as { add: (name: string, desc: string, fn: () => void) => void };
       commands.forEach(cmd => cmds.add(cmd.name, cmd.description, cmd.exec));
-    } else {
+    } else if (editorManager.editor) {
       const { commands: editorCommands } = editorManager.editor;
       commands.forEach(cmd => editorCommands.addCommand({ name: cmd.name, description: cmd.description, exec: cmd.exec }));
     }
@@ -244,11 +256,14 @@ class OpenCodeAlpinePlugin {
       this.runBtn = null;
     }
 
+    if (!editorManager) return;
+    
     const handleSwitch = this.showButtonIfFileOpen.bind(this);
+    
     if (editorManager.isCodeMirror) {
       editorManager.off('switch-file', handleSwitch);
     } else if (editorManager.editor) {
-      (editorManager.editor as EditorManager).off('switch-file', handleSwitch);
+      editorManager.editor.off('switch-file', handleSwitch);
     }
 
     const commandNames = [
@@ -258,24 +273,26 @@ class OpenCodeAlpinePlugin {
       'opencode-uninstall',
       'opencode-menu'
     ];
+
     if (editorManager.isCodeMirror) {
       const cmds = acode.require('commands') as { remove: (name: string) => void };
       commandNames.forEach(name => cmds.remove(name));
-    } else {
+    } else if (editorManager.editor) {
       const { commands } = editorManager.editor;
       commandNames.forEach(name => commands.removeCommand(name));
     }
   }
 }
 
-if (window.acode) {
+const win = window as Window & { acode?: AcodeModule };
+if (win.acode) {
   const opencodePlugin = new OpenCodeAlpinePlugin();
-  acode.setPluginInit(plugin.id, async (baseUrl: string, $page: unknown, { cacheFileUrl, cacheFile }: { cacheFileUrl: string; cacheFile: unknown }) => {
+  win.acode.setPluginInit(plugin.id, async (baseUrl: string, $page: unknown, { cacheFileUrl, cacheFile }: { cacheFileUrl: string; cacheFile: unknown }) => {
     if (!baseUrl.endsWith('/')) baseUrl += '/';
     opencodePlugin.baseUrl = baseUrl;
     await opencodePlugin.init();
   });
-  acode.setPluginUnmount(plugin.id, () => opencodePlugin.destroy());
+  win.acode.setPluginUnmount(plugin.id, () => opencodePlugin.destroy());
 }
 
 export {};

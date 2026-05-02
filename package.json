@@ -13,7 +13,8 @@
   "devDependencies": {
     "esbuild": "^0.25.8",
     "jszip": "^3.10.1",
-    "sharp": "^0.34.5"
+    "sharp": "^0.34.5",
+    "typescript": "^6.0.3"
   },
   "scripts": {
     "dev": "node esbuild.config.mjs --serve",
