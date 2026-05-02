@@ -1,3 +1,5 @@
+> **NOTE:** To be able to use OpenCode, use keyboard apps that have Ctrl, Alt and Tab like CodeBoard, Hacker's Keyboard and similar.
+
 # OpenCode Alpine Installer for Acode
 
 A plugin to install and manage [OpenCode](https://opencode.ai) on Alpine Linux in Acode mobile editor.
