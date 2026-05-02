@@ -32,6 +32,7 @@ async function createZip() {
     'main.js',
     'readme.md',
     'icon.png',
+    'src/opencode.sh',
   ];
 
   for (const file of files) {
