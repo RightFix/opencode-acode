@@ -10,7 +10,7 @@ const isServe = process.argv.includes('--serve');
 const pluginJson = JSON.parse(readFileSync(resolve(__dirname, 'plugin.json'), 'utf8'));
 
 const buildOptions = {
-  entryPoints: [resolve(__dirname, 'src/main.js')],
+  entryPoints: [resolve(__dirname, 'src/main.ts')],
   bundle: true,
   minify: !isServe,
   format: 'iife',
@@ -18,6 +18,7 @@ const buildOptions = {
   outfile: resolve(__dirname, 'main.js'),
   loader: {
     '.json': 'json',
+    '.ts': 'ts',
   },
   define: {
     'process.env.NODE_ENV': isServe ? '"development"' : '"production"',
