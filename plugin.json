@@ -6,7 +6,6 @@
   "version": "1.0.0",
   "repository": "https://github.com/RightFix/opencode-acode.git",
   "icon": "icon.png",
-  "minVersionCode": 290,
   "license": "MIT",
   "keywords": ["opencode", "alpine", "linux", "installer", "AI", "Claude", "GPT", "LLM", "AI assistant", "coding", "development"],
   "price": 0,
