@@ -61,7 +61,7 @@ let terminal: TerminalModule;
 
 class OpenCodeAlpinePlugin {
   baseUrl = '';
-  private runBtn: HTMLSpanElement | null = null;
+  private sideBtn: { show: () => void; hide: () => void } | null = null;
 
   async init(): Promise<void> {
     const win = window as Window & { acode?: AcodeModule; editorManager?: EditorManager };
@@ -74,91 +74,77 @@ class OpenCodeAlpinePlugin {
     terminal = acode.require('terminal') as TerminalModule;
 
     this.registerCommands();
-    this.setupRunButton();
-  }
-
-  private getActiveFile(): { path?: string; filename?: string } | null {
-    try {
-      if (!editorManager) return null;
-      
-      if (editorManager.isCodeMirror) {
-        return editorManager.activeFile || null;
-      } else {
-        return editorManager.editor?.activeFile || null;
-      }
-    } catch {
-      return null;
-    }
+    this.setupSideButton();
   }
 
   private getDirectory(filePath: string): string {
     const parts = filePath.split('/');
     parts.pop();
-    return parts.join('/') || '/';
+    let newPath = parts.join('/') || '/';
+    if (newPath.includes('files/alpine/home')) {
+      const paths = newPath.split('files/alphine/home')
+      newPath = paths[1] || ''
+    }
+    else {
+      const paths = newPath.split('storage/emulated/0')
+      newPath = `../sdcard${paths[1]}`
+    }
+    return newPath
   }
 
   private getHeader(): HTMLElement | null {
-    return document.querySelector('header');
+    const root = document.querySelector("#root");
+    return root?.querySelector('header') as HTMLElement | null;
   }
 
-  private createRunButton(): HTMLSpanElement {
-    const btn = document.createElement('span');
-    btn.className = 'icon opencode-btn';
-    btn.setAttribute('action', 'opencode');
-    btn.title = 'Run with OpenCode';
-    btn.style.cssText = `
-      width: 24px !important;
-      height: 24px !important;
-      display: inline-flex !important;
-      align-items: center !important;
-      justify-content: center !important;
-      background-image: url(${this.baseUrl}icon.png) !important;
-      background-size: cover !important;
-      background-position: center !important;
-      border-radius: 4px !important;
-      cursor: pointer !important;
-    `;
-    btn.onclick = async () => {
-      const file = this.getActiveFile();
-      if (!file?.path) return;
+  private setupSideButton(): void {
+    const self = this;
+    const SideButton = acode.require('sideButton') as (options: {
+      text: string;
+      icon: string;
+      onclick: () => void | Promise<void>;
+      backgroundColor?: string;
+      textColor?: string;
+    }) => { show: () => void; hide: () => void };
+
+    const runOpenCode = async () => {
+      let filePath = '';
       
-      const dir = this.getDirectory(file.path);
+      const file = editorManager.activeFile as { path?: string; uri?: string; location?: string } | null;
+      if (file?.path) filePath = file.path;
+      else if (file?.uri) filePath = file.uri;
+      else if (file?.location) filePath = file.location;
+      
+      if (!filePath && editorManager.editor) {
+        const editorView = editorManager.editor as { state?: { doc?: { toString?: () => string } } };
+        if (editorView.state?.doc?.toString) {
+          alert('OpenCode', 'Editor active but no file path. Using default directory.');
+          const term = await terminal.create({ name: 'OpenCode' });
+          await terminal.write(term.id, "opencode\r\n");
+          return;
+        }
+      }
+      
+      if (!filePath) {
+        alert('OpenCode', 'No file open. File: ' + JSON.stringify(file));
+        return;
+      }
+      
+      const dir = self.getDirectory(filePath);
       const term = await terminal.create({ name: 'OpenCode' });
       await terminal.write(term.id, "cd " + dir + "\r\n");
       await terminal.write(term.id, "opencode\r\n");
     };
-    return btn;
-  }
 
-  private showButtonIfFileOpen(): void {
-    const file = this.getActiveFile();
-    
-    if (this.runBtn && this.runBtn.isConnected) {
-      this.runBtn.remove();
-      this.runBtn = null;
-    }
+    this.sideBtn = SideButton({
+      text: 'OpenCode',
+      icon: 'opencode-icon',
+      onclick: runOpenCode,
+      backgroundColor: '#4CAF50',
+      textColor: '#fff',
+    });
 
-    if (file?.path) {
-      const $header = this.getHeader();
-      if ($header) {
-        this.runBtn = this.createRunButton();
-        $header.appendChild(this.runBtn);
-      }
-    }
-  }
-
-  private setupRunButton(): void {
-    if (!editorManager) return;
-    
-    const handleSwitch = this.showButtonIfFileOpen.bind(this);
-    
-    if (editorManager.isCodeMirror) {
-      editorManager.on('switch-file', handleSwitch);
-    } else if (editorManager.editor) {
-      editorManager.editor.on('switch-file', handleSwitch);
-    }
-
-    setTimeout(() => this.showButtonIfFileOpen(), 500);
+    this.sideBtn.show();
   }
 
   registerCommands(): void {
@@ -252,22 +238,13 @@ class OpenCodeAlpinePlugin {
   }
 
   async destroy(): Promise<void> {
-    if (this.runBtn) {
-      this.runBtn.onclick = null;
-      this.runBtn.remove();
-      this.runBtn = null;
+    if (this.sideBtn) {
+      this.sideBtn.hide();
+      this.sideBtn = null;
     }
 
     if (!editorManager) return;
     
-    const handleSwitch = this.showButtonIfFileOpen.bind(this);
-    
-    if (editorManager.isCodeMirror) {
-      editorManager.off('switch-file', handleSwitch);
-    } else if (editorManager.editor) {
-      editorManager.editor.off('switch-file', handleSwitch);
-    }
-
     const commandNames = [
       'opencode-install',
       'opencode-version',
