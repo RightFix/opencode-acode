@@ -98,9 +98,7 @@ class OpenCodeAlpinePlugin {
   }
 
   private getHeader(): HTMLElement | null {
-    const root = document.querySelector('#root');
-    if (!root) return null;
-    return root.querySelector('header') as HTMLElement | null;
+    return document.querySelector('header');
   }
 
   private createRunButton(): HTMLSpanElement {
@@ -144,7 +142,7 @@ class OpenCodeAlpinePlugin {
       const $header = this.getHeader();
       if ($header) {
         this.runBtn = this.createRunButton();
-        $header.insertBefore(this.runBtn, $header.lastChild);
+        $header.appendChild(this.runBtn);
       }
     }
   }
@@ -160,7 +158,7 @@ class OpenCodeAlpinePlugin {
       editorManager.editor.on('switch-file', handleSwitch);
     }
 
-    this.showButtonIfFileOpen();
+    setTimeout(() => this.showButtonIfFileOpen(), 500);
   }
 
   registerCommands(): void {
