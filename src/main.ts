@@ -29,18 +29,19 @@ interface AcodeCommand {
 
 interface EditorManager {
   isCodeMirror: boolean;
+  activeFile?: { path?: string; filename?: string } | null;
+  on(event: string, callback: () => void): void;
+  off(event: string, callback: () => void): void;
   editor: {
     commands: {
       addCommand: (cmd: AcodeCommand) => void;
       removeCommand: (name: string) => void;
     };
-    getActiveFile?: () => { path?: string } | null;
+    activeFile?: { path?: string; filename?: string } | null;
+    on(event: string, callback: () => void): void;
+    off(event: string, callback: () => void): void;
   };
-  getActiveFile?: () => { path?: string } | null;
-}
-
-interface TabBar {
-  addButton: (options: { icon?: string; title?: string; id?: string; iconState?: { SVG?: string } }) => HTMLElement;
+  getActiveFile?: () => { path?: string; filename?: string } | null;
 }
 
 declare const acode: {
@@ -58,7 +59,7 @@ let terminal: TerminalModule;
 
 class OpenCodeAlpinePlugin {
   baseUrl = '';
-  private headerButton: HTMLElement | null = null;
+  private runBtn: HTMLSpanElement | null = null;
 
   async init(): Promise<void> {
     alert = acode.require('alert') as AcodeAlert;
@@ -67,20 +68,15 @@ class OpenCodeAlpinePlugin {
     terminal = acode.require('terminal') as TerminalModule;
 
     this.registerCommands();
-    this.addHeaderButton();
+    this.setupRunButton();
   }
 
-  private async getCurrentFilePath(): Promise<string | null> {
+  private getActiveFile(): { path?: string; filename?: string } | null {
     try {
       if (editorManager.isCodeMirror) {
-        const getActiveFile = editorManager.getActiveFile as () => { path?: string } | null;
-        const file = getActiveFile?.();
-        return file?.path || null;
+        return editorManager.activeFile || null;
       } else {
-        const editor = (editorManager as EditorManager).editor;
-        const getActiveFile = editor.getActiveFile as () => { path?: string } | null;
-        const file = getActiveFile?.();
-        return file?.path || null;
+        return (editorManager.editor as EditorManager).activeFile || null;
       }
     } catch {
       return null;
@@ -93,29 +89,68 @@ class OpenCodeAlpinePlugin {
     return parts.join('/') || '/';
   }
 
-  private addHeaderButton(): void {
-    try {
-      const tabbar = acode.require('tabbar') as TabBar;
-      if (tabbar?.addButton) {
-        this.headerButton = tabbar.addButton({
-          icon: '⚡',
-          title: 'Run with OpenCode',
-          id: 'opencode-run-btn'
-        } as { icon: string; title: string; id: string });
-        
-        this.headerButton.addEventListener('click', async () => {
-          const filePath = await this.getCurrentFilePath();
-          if (!filePath) return;
-          
-          const dir = this.getDirectory(filePath);
-          const term = await terminal.create({ name: 'OpenCode' });
-          await terminal.write(term.id, "cd " + dir + "\r\n");
-          await terminal.write(term.id, "opencode\r\n");
-        });
-      }
-    } catch (e) {
-      console.error('Failed to add header button:', e);
+  private getHeader(): HTMLElement | null {
+    const root = document.querySelector('#root');
+    if (!root) return null;
+    return root.querySelector('header') as HTMLElement | null;
+  }
+
+  private createRunButton(): HTMLSpanElement {
+    const btn = document.createElement('span');
+    btn.className = 'icon opencode-btn';
+    btn.setAttribute('action', 'opencode');
+    btn.title = 'Run with OpenCode';
+    btn.style.cssText = `
+      width: 24px !important;
+      height: 24px !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      background-image: url(${this.baseUrl}icon.png) !important;
+      background-size: cover !important;
+      background-position: center !important;
+      border-radius: 4px !important;
+      cursor: pointer !important;
+    `;
+    btn.onclick = async () => {
+      const file = this.getActiveFile();
+      if (!file?.path) return;
+      
+      const dir = this.getDirectory(file.path);
+      const term = await terminal.create({ name: 'OpenCode' });
+      await terminal.write(term.id, "cd " + dir + "\r\n");
+      await terminal.write(term.id, "opencode\r\n");
+    };
+    return btn;
+  }
+
+  private showButtonIfFileOpen(): void {
+    const file = this.getActiveFile();
+    
+    if (this.runBtn && this.runBtn.isConnected) {
+      this.runBtn.remove();
+      this.runBtn = null;
     }
+
+    if (file?.path) {
+      const $header = this.getHeader();
+      if ($header) {
+        this.runBtn = this.createRunButton();
+        $header.insertBefore(this.runBtn, $header.lastChild);
+      }
+    }
+  }
+
+  private setupRunButton(): void {
+    const handleSwitch = this.showButtonIfFileOpen.bind(this);
+    
+    if (editorManager.isCodeMirror) {
+      editorManager.on('switch-file', handleSwitch);
+    } else if (editorManager.editor) {
+      (editorManager.editor as EditorManager).on('switch-file', handleSwitch);
+    }
+
+    this.showButtonIfFileOpen();
   }
 
   registerCommands(): void {
@@ -203,6 +238,19 @@ class OpenCodeAlpinePlugin {
   }
 
   async destroy(): Promise<void> {
+    if (this.runBtn) {
+      this.runBtn.onclick = null;
+      this.runBtn.remove();
+      this.runBtn = null;
+    }
+
+    const handleSwitch = this.showButtonIfFileOpen.bind(this);
+    if (editorManager.isCodeMirror) {
+      editorManager.off('switch-file', handleSwitch);
+    } else if (editorManager.editor) {
+      (editorManager.editor as EditorManager).off('switch-file', handleSwitch);
+    }
+
     const commandNames = [
       'opencode-install',
       'opencode-version',
