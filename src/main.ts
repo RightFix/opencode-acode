@@ -212,6 +212,7 @@ class OpenCodeAlpinePlugin {
       await terminal.write(term.id, "mkdir -p ~/.local/share/opencode/bin\r\n");
       await terminal.write(term.id, "curl -fsSL https://opencode.ai/install | bash\r\n");
       await terminal.write(term.id, 'echo "export PATH=$HOME/.opencode/bin:$PATH" >> ~/.bashrc\r\n');
+      await terminal.write(term.id, 'exit \r\n');
 
       alert('Installing OpenCode...', 'Wait for installation to complete. Follow the terminal output.');
     } catch (error) { alert('Error', String(error)); }
