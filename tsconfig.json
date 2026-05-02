@@ -11,7 +11,6 @@
     "rootDir": "./src",
     "declaration": true,
     "noEmit": true,
-    "ignoreDeprecations": "6.0",
     "lib": ["ES2018", "DOM", "DOM.Iterable"],
     "noImplicitAny": false
   },
