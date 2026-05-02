@@ -8,7 +8,6 @@ A plugin to install and manage [OpenCode](https://opencode.ai) on Alpine Linux i
 
 - One-click OpenCode installation on Alpine Linux
 - Check OpenCode version
-- Login to OpenCode
 - Update OpenCode to latest version
 - Uninstall OpenCode
 
@@ -59,7 +58,6 @@ After installation, access the plugin via:
 2. **Commands available:**
    - `OpenCode: Install` - Downloads and installs OpenCode for Alpine Linux
    - `OpenCode: Check Version` - Shows installed OpenCode version
-   - `OpenCode: Login` - Opens OpenCode authentication
    - `OpenCode: Update` - Updates OpenCode to latest version
    - `OpenCode: Uninstall` - Removes OpenCode from your device
    - `OpenCode: Show Menu` - Opens interactive menu with all options
@@ -68,8 +66,7 @@ After installation, access the plugin via:
 
 1. Install OpenCode using the **"OpenCode: Install"** command
 2. Wait for the installation to complete
-3. Login using **"OpenCode: Login"**
-4. Start using OpenCode in the terminal
+3. Start using OpenCode in the terminal
 
 ## Troubleshooting
 

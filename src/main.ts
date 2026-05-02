@@ -195,7 +195,7 @@ class OpenCodeAlpinePlugin {
         case 'Update': await this.updateOpenCode(); break;
         case 'Uninstall': await this.uninstallOpenCode(); break;
       }
-    } catch (e) { console.error('Menu error:', e); }
+    } catch (e) { }
   }
 
   async installOpenCode(): Promise<void> {
