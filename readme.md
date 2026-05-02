@@ -1,4 +1,4 @@
-> **NOTE:** To be able to use OpenCode, use keyboard apps that have Ctrl, Alt and Tab like CodeBoard, Hacker's Keyboard and similar.
+> **NOTE:** To be able to use OpenCode, use keyboard apps that have Ctrl, Alt and Tab like CodeBoard, Hacker's Keyboard and similar apps.
 
 # OpenCode Alpine Installer for Acode
 
