@@ -5,7 +5,7 @@
   "main": "src/main.ts",
   "repository": "https://github.com/RightFix/opencode-acode.git",
   "author": "RightFix",
-  "license": "MIT",
+  "license": "AGPL-3.0",
   "dependencies": {
     "acode-plugin-types": "^1.11.7-patch.2",
     "html-tag-js": "^2.4.15"
