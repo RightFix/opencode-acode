@@ -1,6 +1,6 @@
 {
   "name": "opencode-alpine-installer-acode",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "Install and manage OpenCode on Alpine Linux for Acode mobile editor",
   "main": "src/main.ts",
   "repository": "https://github.com/RightFix/opencode-acode.git",

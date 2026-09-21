@@ -56,23 +56,25 @@ After installation, access the plugin via:
 1. **Command Palette** (Ctrl+Shift+P) - Search for "OpenCode"
 
 2. **Commands available:**
-   - `OpenCode: Install` - Downloads and installs OpenCode for Alpine Linux
+   - `OpenCode: Install` - Installs OpenCode via npm on Alpine Linux
    - `OpenCode: Check Version` - Shows installed OpenCode version
-   - `OpenCode: Update` - Updates OpenCode to latest version
+   - `OpenCode: Update` - Updates OpenCode to latest version via npm
    - `OpenCode: Uninstall` - Removes OpenCode from your device
    - `OpenCode: Show Menu` - Opens interactive menu with all options
 
 ## Getting Started
 
 1. Install OpenCode using the **"OpenCode: Install"** command
-2. Wait for the installation to complete
-3. Start using OpenCode in the terminal
+2. Wait for the terminal to finish (`npm install -g opencode-ai`)
+3. Verify with **"OpenCode: Check Version"**
+4. Start using OpenCode in the terminal
 
 ## Troubleshooting
 
 - If installation fails, ensure you have an active internet connection
 - Make sure Acode's terminal is properly configured
-- Try running `apk update` in the terminal before installing
+- If `npm install -g opencode-ai` fails, check that Node.js and npm are installed: `node --version && npm --version`
+- If the side-button icon is missing, reload Acode or reinstall the plugin
 - Check the terminal output for any error messages
 
 ## Development
@@ -82,13 +84,15 @@ After installation, access the plugin via:
 ```
 opencode-alpine-installer-Acode/
 ├── src/
-│   └── main.js       # Plugin source code
-├── plugin.json       # Plugin configuration
-├── package.json      # NPM dependencies
+│   └── main.ts        # Plugin source code
+├── plugin.json        # Plugin configuration
+├── package.json       # NPM dependencies
 ├── esbuild.config.mjs # Build configuration
-├── icon.png          # Plugin icon
-├── readme.md         # Documentation
-└── dist.zip          # Built plugin (for distribution)
+├── icon.png           # Plugin icon
+├── readme.md          # Documentation
+├── changelog.md       # Version history
+├── LICENSE            # AGPL-3.0 license
+└── dist.zip           # Built plugin (for distribution)
 ```
 
 ### Build Commands

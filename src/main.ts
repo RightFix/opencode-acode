@@ -46,11 +46,30 @@ interface EditorCommands {
   off(event: string, callback: () => void): void;
 }
 
+interface CommandsModule {
+  addCommand?: (cmd: AcodeCommand) => void;
+  removeCommand?: (name: string) => void;
+  registry?: {
+    add: (cmd: AcodeCommand) => void;
+    remove: (name: string) => void;
+  };
+}
+
 interface AcodeModule {
   require: (module: string) => unknown;
+  addCommand?: (cmd: AcodeCommand) => void;
+  removeCommand?: (name: string) => void;
+  addIcon?: (name: string, src: string) => void;
+  toast?: Toast;
   setPluginInit: (id: string, initFn: (baseUrl: string, $page: unknown, ctx: { cacheFileUrl: string; cacheFile: unknown }) => Promise<void>) => void;
   setPluginUnmount: (id: string, unmountFn: () => void) => void;
 }
+
+interface Toast {
+  (message: string, duration?: number): void;
+}
+
+let toast: Toast;
 
 let acode: AcodeModule;
 let editorManager: EditorManager;
@@ -60,7 +79,6 @@ let select: AcodeSelect;
 let terminal: TerminalModule;
 
 class OpenCodeAlpinePlugin {
-  baseUrl = '';
   private sideBtn: { show: () => void; hide: () => void } | null = null;
 
   async init(): Promise<void> {
@@ -72,17 +90,18 @@ class OpenCodeAlpinePlugin {
     confirm = acode.require('confirm') as AcodeConfirm;
     select = acode.require('select') as AcodeSelect;
     terminal = acode.require('terminal') as TerminalModule;
+    toast = acode.require('toast') as Toast;
 
     this.registerCommands();
     this.setupSideButton();
   }
 
-  private getDirectory(filePath: string): string {
+  private getDirectory(filePath: string): string | null {
     const parts = filePath.split('/');
     parts.pop();
     let newPath = parts.join('/') || '/';
     if (newPath.includes('files/alpine/home')) {
-      const paths = newPath.split('files/alphine/home')
+      const paths = newPath.split('files/alpine/home')
       newPath = paths[1] || ''
     }
     else {
@@ -90,11 +109,6 @@ class OpenCodeAlpinePlugin {
       newPath = `../sdcard${paths[1]}`
     }
     return newPath
-  }
-
-  private getHeader(): HTMLElement | null {
-    const root = document.querySelector("#root");
-    return root?.querySelector('header') as HTMLElement | null;
   }
 
   private setupSideButton(): void {
@@ -107,18 +121,22 @@ class OpenCodeAlpinePlugin {
       textColor?: string;
     }) => { show: () => void; hide: () => void };
 
+    // Register the side-button icon so it renders on all Acode builds
+    try {
+      const iconName = 'opencode-icon';
+      if (typeof acode.addIcon === 'function') {
+        acode.addIcon(iconName, 'https://opencode.ai/favicon.svg');
+      }
+    } catch { /* icon registration is optional */ }
+
     const runOpenCode = async () => {
-      let filePath = '';
-      
       const file = editorManager.activeFile as { path?: string; uri?: string; location?: string } | null;
-      if (file?.path) filePath = file.path;
-      else if (file?.uri) filePath = file.uri;
-      else if (file?.location) filePath = file.location;
+      const filePath = file?.path ?? file?.uri ?? file?.location ?? '';
       
       if (!filePath && editorManager.editor) {
         const editorView = editorManager.editor as { state?: { doc?: { toString?: () => string } } };
         if (editorView.state?.doc?.toString) {
-          alert('OpenCode', 'Editor active but no file path. Using default directory.');
+          alert('OpenCode', 'Editor active but no file path.');
           const term = await terminal.create({ name: 'OpenCode' });
           await terminal.write(term.id, "opencode\r\n");
           return;
@@ -126,14 +144,24 @@ class OpenCodeAlpinePlugin {
       }
       
       if (!filePath) {
-        alert('OpenCode', 'No file open. File: ' + JSON.stringify(file));
+        alert('OpenCode', 'No file open.');
         return;
       }
       
       const dir = self.getDirectory(filePath);
-      const term = await terminal.create({ name: 'OpenCode' });
-      await terminal.write(term.id, "cd " + dir + "\r\n");
-      await terminal.write(term.id, "opencode\r\n");
+      if (!dir) {
+        alert('OpenCode', 'Could not determine a directory for this file.');
+        return;
+      }
+      
+      try {
+        const term = await terminal.create({ name: 'OpenCode' });
+        // Quote path so spaces/special characters do not break cd
+        await terminal.write(term.id, `cd "${dir}"\r\n`);
+        await terminal.write(term.id, "opencode\r\n");
+      } catch (e) {
+        alert('Error', String(e));
+      }
     };
 
     this.sideBtn = SideButton({
@@ -149,9 +177,9 @@ class OpenCodeAlpinePlugin {
 
   registerCommands(): void {
     if (!editorManager) return;
-    
+
     const self = this;
-    const commands = [
+    const commands: AcodeCommand[] = [
       { name: 'opencode-install', description: 'OpenCode: Install', exec: () => self.installOpenCode() },
       { name: 'opencode-version', description: 'OpenCode: Check Version', exec: () => self.checkVersion() },
       { name: 'opencode-update', description: 'OpenCode: Update', exec: () => self.updateOpenCode() },
@@ -159,13 +187,33 @@ class OpenCodeAlpinePlugin {
       { name: 'opencode-menu', description: 'OpenCode: Show Menu', exec: () => self.showMenu() },
     ];
 
-    if (editorManager.isCodeMirror) {
-      const cmds = acode.require('commands') as { add: (name: string, desc: string, fn: () => void) => void };
-      commands.forEach(cmd => cmds.add(cmd.name, cmd.description, cmd.exec));
-    } else if (editorManager.editor) {
-      const { commands: editorCommands } = editorManager.editor;
-      commands.forEach(cmd => editorCommands.addCommand({ name: cmd.name, description: cmd.description, exec: cmd.exec }));
-    }
+    // Modern Acode (CodeMirror): acode.require('commands').addCommand({name, description, exec})
+    try {
+      const cmds = acode.require('commands') as CommandsModule | null | undefined;
+      if (cmds && typeof cmds.addCommand === 'function') {
+        commands.forEach(cmd => cmds.addCommand!(cmd));
+        return;
+      }
+      if (cmds && cmds.registry && typeof cmds.registry.add === 'function') {
+        commands.forEach(cmd => cmds.registry!.add(cmd));
+        return;
+      }
+    } catch { /* module missing on legacy builds, fall through */ }
+
+    try {
+      if (typeof acode.addCommand === 'function') {
+        commands.forEach(cmd => acode.addCommand!(cmd));
+        return;
+      }
+    } catch { /* fall through */ }
+
+    // Legacy Acode (Ace): editorManager.editor.commands.addCommand(...)
+    try {
+      const editorCommands = editorManager.editor?.commands;
+      if (editorCommands && typeof editorCommands.addCommand === 'function') {
+        commands.forEach(cmd => editorCommands.addCommand({ name: cmd.name, description: cmd.description, exec: cmd.exec }));
+      }
+    } catch (e) { console.error('OpenCode: command registration failed', e); }
   }
 
   async showMenu(): Promise<void> {
@@ -184,43 +232,37 @@ class OpenCodeAlpinePlugin {
 
   async installOpenCode(): Promise<void> {
     try {
-      const confirmed = await confirm('Install OpenCode?', 'This will install OpenCode on Alpine Linux. Requires internet connection.');
+      const confirmed = await confirm('Install OpenCode?', 'This will install OpenCode via npm. Requires internet connection.');
       if (!confirmed) return;
 
       const term = await terminal.create({ name: 'Install OpenCode' });
-      
       await terminal.write(term.id, "apk update\r\n");
-      await terminal.write(term.id, "apk add curl bash nodejs npm libc6-compat git\r\n");
-      await terminal.write(term.id, "npm uninstall -g opencode-ai 2>/dev/null\r\n");
-      await terminal.write(term.id, "rm -f /usr/local/bin/opencode\r\n");
-      await terminal.write(term.id, "mkdir -p ~/.local/share/opencode/bin\r\n");
-      await terminal.write(term.id, "curl -fsSL https://opencode.ai/install | bash\r\n");
-      await terminal.write(term.id, 'echo "export PATH=$HOME/.opencode/bin:$PATH" >> ~/.bashrc\r\n');
+      await terminal.write(term.id, "apk add nodejs npm git libc6-compat\r\n");
+      await terminal.write(term.id, "npm install -g opencode-ai\r\n");
+      await terminal.write(term.id, "opencode --version\r\n");
       await terminal.write(term.id, 'exit \r\n');
-
-      alert('Installing OpenCode...', 'Wait for installation to complete. Follow the terminal output.');
-    } catch (error) { alert('Error', String(error)); }
+      toast('Installing OpenCode...');
+    } catch (error) { toast('Error: ' + String(error)); }
   }
 
   async checkVersion(): Promise<void> {
     try {
       const term = await terminal.create({ name: 'Check Version' });
       await terminal.write(term.id, "opencode --version \r\n");
-    } catch (error) { alert('Error', String(error)); }
+    } catch (error) { toast('Error: ' + String(error)); }
   }
 
   async updateOpenCode(): Promise<void> {
     try {
-      const confirmed = await confirm('Update OpenCode?', 'This will update to the latest version.');
+      const confirmed = await confirm('Update OpenCode?', 'This will update to the latest version via npm.');
       if (!confirmed) return;
 
       const term = await terminal.create({ name: 'Update OpenCode' });
-      await terminal.write(term.id, "npm update -g opencode-ai \r\n");
+      await terminal.write(term.id, "npm install -g opencode-ai@latest \r\n");
       await terminal.write(term.id, "opencode --version \r\n");
       await terminal.write(term.id, "exit \r\n");
-
-      alert('Updating OpenCode...', 'Wait for update to complete.');
-    } catch (error) { alert('Error', String(error)); }
+      toast('Updating OpenCode...');
+    } catch (error) { toast('Error: ' + String(error)); }
   }
 
   async uninstallOpenCode(): Promise<void> {
@@ -231,10 +273,10 @@ class OpenCodeAlpinePlugin {
     try {
       const term = await terminal.create({ name: 'Uninstall OpenCode' });
       await terminal.write(term.id, "npm uninstall -g opencode-ai \r\n");
-      await terminal.write(term.id, "rm -rf ~/.opencode \r\n");
+      await terminal.write(term.id, "opencode --version || true\r\n");
       await terminal.write(term.id, "exit \r\n");
-      alert('Success', 'OpenCode uninstalled.');
-    } catch (error) { alert('Error', String(error)); }
+      toast('OpenCode uninstalled.');
+    } catch (error) { toast('Uninstall failed: ' + String(error)); }
   }
 
   async destroy(): Promise<void> {
@@ -244,7 +286,7 @@ class OpenCodeAlpinePlugin {
     }
 
     if (!editorManager) return;
-    
+
     const commandNames = [
       'opencode-install',
       'opencode-version',
@@ -253,22 +295,38 @@ class OpenCodeAlpinePlugin {
       'opencode-menu'
     ];
 
-    if (editorManager.isCodeMirror) {
-      const cmds = acode.require('commands') as { remove: (name: string) => void };
-      commandNames.forEach(name => cmds.remove(name));
-    } else if (editorManager.editor) {
-      const { commands } = editorManager.editor;
-      commandNames.forEach(name => commands.removeCommand(name));
-    }
+    try {
+      const cmds = acode.require('commands') as CommandsModule | null | undefined;
+      if (cmds && typeof cmds.removeCommand === 'function') {
+        commandNames.forEach(name => cmds.removeCommand!(name));
+        return;
+      }
+      if (cmds && cmds.registry && typeof cmds.registry.remove === 'function') {
+        commandNames.forEach(name => cmds.registry!.remove(name));
+        return;
+      }
+    } catch { /* fall through */ }
+
+    try {
+      if (typeof acode.removeCommand === 'function') {
+        commandNames.forEach(name => acode.removeCommand!(name));
+        return;
+      }
+    } catch { /* fall through */ }
+
+    try {
+      const editorCommands = editorManager.editor?.commands;
+      if (editorCommands && typeof editorCommands.removeCommand === 'function') {
+        commandNames.forEach(name => editorCommands.removeCommand(name));
+      }
+    } catch (e) { console.error('OpenCode: command removal failed', e); }
   }
 }
 
 const win = window as Window & { acode?: AcodeModule };
 if (win.acode) {
   const opencodePlugin = new OpenCodeAlpinePlugin();
-  win.acode.setPluginInit(plugin.id, async (baseUrl: string, $page: unknown, { cacheFileUrl, cacheFile }: { cacheFileUrl: string; cacheFile: unknown }) => {
-    if (!baseUrl.endsWith('/')) baseUrl += '/';
-    opencodePlugin.baseUrl = baseUrl;
+  win.acode.setPluginInit(plugin.id, async (_baseUrl: string, $page: unknown, { cacheFileUrl, cacheFile }: { cacheFileUrl: string; cacheFile: unknown }) => {
     await opencodePlugin.init();
   });
   win.acode.setPluginUnmount(plugin.id, () => opencodePlugin.destroy());
