@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.0.1
+
+- Auto-install on plugin download: `setPluginInit` now reads `firstInit` flag and calls `autoInstall()`.
+- `autoInstall()` prompts user before running `apk add nodejs npm git libc6-compat` + `npm install -g opencode-ai`.
+- `autoInstalled` flag prevents duplicate runs on reload.
+- Toast feedback on success, skip, or failure fallback.
+
 ## 2.0.0
 
 - Fix `t.add is not a function` crash in command registration.
