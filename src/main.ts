@@ -61,7 +61,7 @@ interface AcodeModule {
   removeCommand?: (name: string) => void;
   addIcon?: (name: string, src: string) => void;
   toast?: Toast;
-  setPluginInit: (id: string, initFn: (baseUrl: string, $page: unknown, ctx: { cacheFileUrl: string; cacheFile: unknown }) => Promise<void>) => void;
+  setPluginInit: (id: string, initFn: (baseUrl: string, $page: unknown, ctx: { cacheFileUrl: string; cacheFile: unknown; firstInit: boolean }) => Promise<void>) => void;
   setPluginUnmount: (id: string, unmountFn: () => void) => void;
 }
 
@@ -80,8 +80,9 @@ let terminal: TerminalModule;
 
 class OpenCodeAlpinePlugin {
   private sideBtn: { show: () => void; hide: () => void } | null = null;
+  private autoInstalled = false;
 
-  async init(): Promise<void> {
+  async init(firstInit = false): Promise<void> {
     const win = window as Window & { acode?: AcodeModule; editorManager?: EditorManager };
     acode = win.acode as AcodeModule;
     editorManager = win.editorManager as EditorManager;
@@ -94,6 +95,10 @@ class OpenCodeAlpinePlugin {
 
     this.registerCommands();
     this.setupSideButton();
+
+    if (firstInit) {
+      this.autoInstall();
+    }
   }
 
   private getDirectory(filePath: string): string | null {
@@ -216,6 +221,28 @@ class OpenCodeAlpinePlugin {
     } catch (e) { console.error('OpenCode: command registration failed', e); }
   }
 
+  /** Auto-install on first plugin download (ask user first). */
+  private async autoInstall(): Promise<void> {
+    if (this.autoInstalled) return;
+    try {
+      const confirmed = await confirm('Welcome!', 'OpenCode is not installed. Install it now via npm?');
+      if (!confirmed) {
+        toast('OpenCode install skipped. Use OpenCode: Install anytime.');
+        return;
+      }
+      const term = await terminal.create({ name: 'Install OpenCode' });
+      await terminal.write(term.id, "apk update\r\n");
+      await terminal.write(term.id, "apk add nodejs npm git libc6-compat\r\n");
+      await terminal.write(term.id, "npm install -g opencode-ai\r\n");
+      await terminal.write(term.id, "opencode --version\r\n");
+      await terminal.write(term.id, 'exit \r\n');
+      this.autoInstalled = true;
+      toast('OpenCode installed!');
+    } catch (e) {
+      toast('Auto-install failed. Use OpenCode: Install manually.');
+    }
+  }
+
   async showMenu(): Promise<void> {
     const options = ['Install OpenCode', 'Check version', 'Update', 'Uninstall'];
     try {
@@ -326,8 +353,8 @@ class OpenCodeAlpinePlugin {
 const win = window as Window & { acode?: AcodeModule };
 if (win.acode) {
   const opencodePlugin = new OpenCodeAlpinePlugin();
-  win.acode.setPluginInit(plugin.id, async (_baseUrl: string, $page: unknown, { cacheFileUrl, cacheFile }: { cacheFileUrl: string; cacheFile: unknown }) => {
-    await opencodePlugin.init();
+  win.acode.setPluginInit(plugin.id, async (_baseUrl: string, $page: unknown, { cacheFileUrl, cacheFile, firstInit }: { cacheFileUrl: string; cacheFile: unknown; firstInit: boolean }) => {
+    await opencodePlugin.init(firstInit);
   });
   win.acode.setPluginUnmount(plugin.id, () => opencodePlugin.destroy());
 }
